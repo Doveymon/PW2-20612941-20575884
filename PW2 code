@@ -1,0 +1,152 @@
+#include <LiquidCrystal.h> // For displaying data
+
+// LCD and Sensor Pins
+const int rs = 8, en = 9, d4 = 4, d5 = 5, d6 = 6, d7 = 7;
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+const int IR1 = A4; // Left IR sensor
+const int IR2 = A5; // Right IR sensor
+
+// Motor Pins
+const int in1 = 0;  // Left motor forward
+const int in2 = 1;  // Left motor backward
+const int in3 = 2;  // Right motor forward
+const int in4 = 12; // Right motor backward
+const int enA = 3;  // PWM pin for left motor
+const int enB = 11; // PWM pin for right motor
+
+// Distance Variables
+volatile int steps1 = 0; // Steps from encoder 1
+volatile int steps2 = 0; // Steps from encoder 2
+float distance1 = 0;     // Distance from encoder 1 in cm
+float distance2 = 0;     // Distance from encoder 2 in cm
+
+// Sensitivity thresholds for IR sensors
+const int leftThreshold = 80;
+const int rightThreshold = 170;
+
+// Timing variables
+unsigned long startTime;
+unsigned long currentTime;
+
+// Distance measurement constants
+const float wheelCircumference = 19.178; // Updated circumference for 6.1 cm diameter wheel
+const int encoderTicksPerRevolution = 20; // Example: number of encoder ticks per wheel revolution
+
+const int sPin1 = A1;
+const int sPin2 = A2;
+
+void setup() {
+  // Initialize motor control pins
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+  pinMode(enA, OUTPUT);
+  pinMode(enB, OUTPUT);
+
+  // Initialize IR sensor pins
+  pinMode(IR1, INPUT);
+  pinMode(IR2, INPUT);
+
+  // Initialize LCD
+  lcd.begin(16, 2);
+
+  // Initialize timers
+  startTime = millis();
+
+  // Display initial message
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Starting...");
+  delay(1000);
+  lcd.clear();
+
+  digitalWrite(enA, LOW);
+  digitalWrite(enB, LOW);
+}
+
+void loop() {
+  // Read IR sensors
+  int leftSensorValue = analogRead(IR1);
+  int rightSensorValue = analogRead(IR2);
+  // Count pulses and increment distance
+  if (digitalRead(sPin1)) {
+    steps1++;
+    distance1 += 1.13; // Each pulse adds 
+    while (digitalRead(sPin1)); // Prevent duplicate counts
+  }
+
+  if (digitalRead(sPin2)) {
+    steps2++;
+    distance2 += 1.13; // Each pulse adds
+    while (digitalRead(sPin2)); // Prevent duplicate counts
+  }
+
+  // Display total distance
+  float totalDistance = (distance1 + distance2) / 2.0; // Average distance from both encoders
+  lcd.setCursor(0, 1);
+  lcd.print("Dist: ");
+  lcd.print(totalDistance, 2);
+  lcd.print("cm ");
+  // Line following logic
+  if ((leftSensorValue > leftThreshold) && (rightSensorValue > rightThreshold)) {
+    // Both sensors on black line, go forward
+    moveForward();
+  } else if ((leftSensorValue > leftThreshold) && (rightSensorValue < rightThreshold)) {
+    // Only left sensor detects line, turn left
+    turnLeft();
+  } else if ((leftSensorValue < leftThreshold) && (rightSensorValue > rightThreshold)) {
+    // Only right sensor detects line, turn right
+    turnRight();
+  } else {
+    // No sensors detect the line, stop
+    stopCar();
+  }
+
+  // Update time and distance
+
+
+  // Check for stopping condition (huge black line)
+  if (leftSensorValue > 900 && rightSensorValue > 900) {
+    stopCar();
+    while (true); // Halt the program
+  }
+}
+
+// Motor control functions
+void moveForward() {
+  analogWrite(enA, 65); 
+  analogWrite(enB, 65);
+  digitalWrite(in1, HIGH);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
+}
+
+void turnLeft() {
+  analogWrite(enA, 255); 
+  analogWrite(enB, 255); 
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, HIGH);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
+  delay(30);
+}
+void turnRight() {
+  analogWrite(enA, 255); 
+  analogWrite(enB, 255); 
+  digitalWrite(in1, HIGH);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, HIGH);
+  digitalWrite(in4, LOW);
+  delay(30);
+}
+
+void stopCar() {
+  analogWrite(enA, 0);
+  analogWrite(enB, 0);
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
+}
